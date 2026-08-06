@@ -7,6 +7,7 @@ import type {
   TodayDose,
   Weekday,
 } from './types';
+import { t } from '@/src/i18n';
 
 export function createId(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
@@ -126,6 +127,15 @@ export function getNextPendingDose(doses: TodayDose[]): TodayDose | null {
 
 export const ALL_DAYS: Weekday[] = [0, 1, 2, 3, 4, 5, 6];
 
+export function getDayLabels(): { day: Weekday; short: string; long: string }[] {
+  return ALL_DAYS.map((day) => ({
+    day,
+    short: t(`days.short.${day}`),
+    long: t(`days.long.${day}`),
+  }));
+}
+
+/** @deprecated use getDayLabels() for localized labels */
 export const DAY_LABELS: { day: Weekday; short: string; long: string }[] = [
   { day: 0, short: 'Sun', long: 'Sunday' },
   { day: 1, short: 'Mon', long: 'Monday' },
@@ -157,20 +167,46 @@ export function listOccurrenceDates(
 }
 
 export function describeDuration(duration: PillDuration): string {
-  if (duration.type === 'keep') return 'Keep reminding me';
+  if (duration.type === 'keep') return t('duration.keep');
   if (duration.type === 'until') {
     const d = parseLocalDate(duration.endDate);
-    return `Until ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    return t('duration.until', {
+      date: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+    });
   }
-  return `For ${duration.days} day${duration.days === 1 ? '' : 's'}`;
+  return t('duration.forDays', { count: duration.days });
 }
 
+/** offsetMinutes: 0 = on time, negative = minutes before */
+export function describeReminderOffset(offsetMinutes: number): string {
+  if (offsetMinutes === 0) return t('reminders.onTime');
+  if (offsetMinutes < 0) {
+    const mins = Math.abs(offsetMinutes);
+    if (mins >= 60 && mins % 60 === 0) {
+      return t('reminders.hoursBefore', { count: mins / 60 });
+    }
+    return t('reminders.minutesBefore', { count: mins });
+  }
+  const mins = offsetMinutes;
+  if (mins >= 60 && mins % 60 === 0) {
+    return t('reminders.hoursAfter', { count: mins / 60 });
+  }
+  return t('reminders.minutesAfter', { count: mins });
+}
+
+export function describeReminderOffsets(offsets: number[]): string {
+  if (offsets.length === 0) return t('reminders.none');
+  return [...offsets]
+    .sort((a, b) => a - b)
+    .map(describeReminderOffset)
+    .join(' · ');
+}
+
+export const REMINDER_PRESETS_MINUTES = [0, -5, -10, -15, -30, -60] as const;
+
 export function describeDays(days: Weekday[]): string {
-  if (days.length === 7) return 'Every day';
-  if (days.length === 0) return 'No days selected';
+  if (days.length === 7) return t('days.everyDay');
+  if (days.length === 0) return t('days.none');
   const sorted = [...days].sort((a, b) => a - b);
-  return sorted
-    .map((d) => DAY_LABELS.find((x) => x.day === d)?.short ?? '')
-    .filter(Boolean)
-    .join(', ');
+  return sorted.map((d) => t(`days.short.${d}`)).join(', ');
 }

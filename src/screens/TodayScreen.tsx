@@ -3,14 +3,16 @@ import { useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { DoseCard, doseTimeKey } from '@/src/components/DoseCard';
-import { BigButton } from '@/src/components/BigButton';
 import { AppSafeArea } from '@/src/components/AppSafeArea';
+import { BigButton } from '@/src/components/BigButton';
+import { DoseCard, doseTimeKey } from '@/src/components/DoseCard';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { getNextPendingDose } from '@/src/domain/schedule';
+import { useT } from '@/src/i18n/useT';
 import { usePillStore, useTodayDoses } from '@/src/store/pillStore';
 
 export function TodayScreen() {
+  const t = useT();
   const router = useRouter();
   const pills = usePillStore((s) => s.pills);
   const setDoseStatus = usePillStore((s) => s.setDoseStatus);
@@ -29,51 +31,50 @@ export function TodayScreen() {
 
   const subtitle =
     pills.length === 0
-      ? 'Add a pill and we’ll remind you.'
+      ? t('today.subtitleEmpty')
       : pendingCount === 0
-        ? 'You’re all done for now.'
+        ? t('today.subtitleDone')
         : next
-          ? `Next up: ${next.pillName} at ${next.timeLabel}`
-          : 'Here’s what to take today.';
+          ? t('today.subtitleNext', { name: next.pillName, time: next.timeLabel })
+          : t('today.subtitleList');
 
   return (
     <AppSafeArea>
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={() => setTick((t) => t + 1)} />}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={() => setTick((n) => n + 1)} />}
         showsVerticalScrollIndicator={false}
       >
         <ScreenHeader
-          title="PillTime"
-          brand
+          title={t('today.title')}
           subtitle={subtitle}
           right={
             <Pressable
               onPress={() => router.push('/settings')}
               accessibilityRole="button"
-              accessibilityLabel="Settings"
+              accessibilityLabel={t('common.settings')}
               style={styles.gear}
             >
-              <Text style={styles.gearText}>Settings</Text>
+              <Text style={styles.gearText}>{t('common.settings')}</Text>
             </Pressable>
           }
         />
 
         {pills.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>Add your first pill</Text>
-            <Text style={styles.emptyBody}>
-              Tell PillTime the name, the time, and which days. We’ll take it from there.
-            </Text>
-            <BigButton label="Add pill" onPress={() => router.push('/pill/new')} />
+            <Text style={styles.emptyTitle}>{t('today.emptyTitle')}</Text>
+            <Text style={styles.emptyBody}>{t('today.emptyBody')}</Text>
+            <BigButton label={t('today.addPill')} onPress={() => router.push('/pill/new')} />
           </View>
         ) : doses.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>Nothing due today</Text>
-            <Text style={styles.emptyBody}>
-              No pills are scheduled for today. You can change days in My pills.
-            </Text>
-            <BigButton label="My pills" onPress={() => router.push('/(tabs)/pills')} variant="secondary" />
+            <Text style={styles.emptyTitle}>{t('today.nothingTitle')}</Text>
+            <Text style={styles.emptyBody}>{t('today.nothingBody')}</Text>
+            <BigButton
+              label={t('today.myPills')}
+              onPress={() => router.push('/(tabs)/pills')}
+              variant="secondary"
+            />
           </View>
         ) : (
           <View style={styles.list}>

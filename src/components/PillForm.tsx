@@ -14,8 +14,16 @@ import {
 import { StyleSheet } from 'react-native-unistyles';
 
 import { BigButton } from '@/src/components/BigButton';
-import { ALL_DAYS, DAY_LABELS, clockToKey, formatClockTime, toLocalDateString } from '@/src/domain/schedule';
+import { ReminderOffsetsEditor } from '@/src/components/ReminderOffsetsEditor';
+import {
+  ALL_DAYS,
+  clockToKey,
+  formatClockTime,
+  getDayLabels,
+  toLocalDateString,
+} from '@/src/domain/schedule';
 import type { ClockTime, PillDuration, PillInput, Weekday } from '@/src/domain/types';
+import { useT } from '@/src/i18n/useT';
 
 type Props = {
   initial?: PillInput;
@@ -37,6 +45,8 @@ function dateToClock(date: Date): ClockTime {
 }
 
 export function PillForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
+  const t = useT();
+  const dayLabels = getDayLabels();
   const [name, setName] = useState(initial?.name ?? '');
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [times, setTimes] = useState<ClockTime[]>(
@@ -56,11 +66,10 @@ export function PillForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
   const [dayCount, setDayCount] = useState(
     initial?.duration.type === 'days' ? String(initial.duration.days) : '7',
   );
-  const [remindOnTime, setRemindOnTime] = useState(
-    (initial?.reminderOffsetsMinutes ?? [-5, 0]).includes(0),
-  );
-  const [remindEarly, setRemindEarly] = useState(
-    (initial?.reminderOffsetsMinutes ?? [-5, 0]).includes(-5),
+  const [offsets, setOffsets] = useState<number[]>(
+    initial?.reminderOffsetsMinutes?.length
+      ? [...initial.reminderOffsetsMinutes].sort((a, b) => a - b)
+      : [-5, 0],
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -98,7 +107,7 @@ export function PillForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
       setPickingTimeIndex(null);
     }
     if (event.type === 'dismissed' || !date) return;
-    setTimes((prev) => prev.map((t, i) => (i === index ? dateToClock(date) : t)));
+    setTimes((prev) => prev.map((time, i) => (i === index ? dateToClock(date) : time)));
   };
 
   const onUntilChange = (event: DateTimePickerEvent, date?: Date) => {
@@ -112,22 +121,19 @@ export function PillForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
   const handleSave = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      setError('Give this pill a name');
+      setError(t('form.errorName'));
       return;
     }
     if (times.length === 0) {
-      setError('Pick a time');
+      setError(t('form.errorTime'));
       return;
     }
     if (days.length === 0) {
-      setError('Choose at least one day');
+      setError(t('form.errorDays'));
       return;
     }
-    const offsets: number[] = [];
-    if (remindEarly) offsets.push(-5);
-    if (remindOnTime) offsets.push(0);
     if (offsets.length === 0) {
-      setError('Turn on at least one reminder');
+      setError(t('form.errorReminders'));
       return;
     }
 
@@ -140,19 +146,20 @@ export function PillForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
         times,
         daysOfWeek: days,
         duration,
-        reminderOffsetsMinutes: offsets,
+        reminderOffsetsMinutes: [...offsets].sort((a, b) => a - b),
       });
     } catch {
-      setError('Something went wrong. Please try again.');
+      setError(t('form.errorGeneric'));
       setSaving(false);
     }
   };
 
   const confirmDelete = () => {
     if (!onDelete) return;
-    Alert.alert(`Delete ${name.trim() || 'this pill'}?`, 'Reminders for this pill will stop.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: onDelete },
+    const label = name.trim() || '…';
+    Alert.alert(t('form.deleteTitle', { name: label }), t('form.deleteBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('form.delete'), style: 'destructive', onPress: onDelete },
     ]);
   };
 
@@ -163,39 +170,39 @@ export function PillForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.section}>
-        <Text style={styles.label}>What’s the pill called?</Text>
+        <Text style={styles.label}>{t('form.nameLabel')}</Text>
         <TextInput
           value={name}
           onChangeText={setName}
-          placeholder="e.g. Vitamin D"
-          placeholderTextColor="#7A8F86"
+          placeholder={t('form.namePlaceholder')}
+          placeholderTextColor="#5C534C"
           style={styles.input}
           autoCapitalize="words"
-          accessibilityLabel="Pill name"
+          accessibilityLabel={t('form.nameLabel')}
         />
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.label}>Any notes? (optional)</Text>
+        <Text style={styles.label}>{t('form.notesLabel')}</Text>
         <TextInput
           value={notes}
           onChangeText={setNotes}
-          placeholder="e.g. 1 pill with food"
-          placeholderTextColor="#7A8F86"
+          placeholder={t('form.notesPlaceholder')}
+          placeholderTextColor="#5C534C"
           style={styles.input}
-          accessibilityLabel="Notes"
+          accessibilityLabel={t('form.notesLabel')}
         />
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.label}>What time?</Text>
+        <Text style={styles.label}>{t('form.timeLabel')}</Text>
         {times.map((time, index) => (
           <View key={`${clockToKey(time)}-${index}`} style={styles.timeRow}>
             <Pressable
               style={styles.timeChip}
               onPress={() => setPickingTimeIndex(index)}
               accessibilityRole="button"
-              accessibilityLabel={`Time ${formatClockTime(time)}`}
+              accessibilityLabel={formatClockTime(time)}
             >
               <Text style={styles.timeChipText}>{formatClockTime(time)}</Text>
             </Pressable>
@@ -203,10 +210,10 @@ export function PillForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
               <Pressable
                 onPress={() => setTimes((prev) => prev.filter((_, i) => i !== index))}
                 accessibilityRole="button"
-                accessibilityLabel="Remove time"
+                accessibilityLabel={t('form.removeTime')}
                 style={styles.removeTime}
               >
-                <Text style={styles.removeTimeText}>Remove</Text>
+                <Text style={styles.removeTimeText}>{t('common.remove')}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -220,28 +227,32 @@ export function PillForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
           />
         ) : null}
         {Platform.OS === 'ios' && pickingTimeIndex !== null ? (
-          <BigButton label="Done with time" onPress={() => setPickingTimeIndex(null)} variant="secondary" />
+          <BigButton
+            label={t('form.doneWithTime')}
+            onPress={() => setPickingTimeIndex(null)}
+            variant="secondary"
+          />
         ) : null}
         <BigButton
-          label="Add another time"
+          label={t('form.addAnotherTime')}
           variant="ghost"
-          onPress={() =>
-            setTimes((prev) => [...prev, { hour: 21, minute: 0 }])
-          }
+          onPress={() => setTimes((prev) => [...prev, { hour: 21, minute: 0 }])}
         />
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.label}>Which days?</Text>
+        <Text style={styles.label}>{t('form.daysLabel')}</Text>
         <Pressable
           onPress={setEveryDay}
           style={[styles.choice, everyDay && styles.choiceOn]}
           accessibilityRole="button"
         >
-          <Text style={[styles.choiceText, everyDay && styles.choiceTextOn]}>Every day</Text>
+          <Text style={[styles.choiceText, everyDay && styles.choiceTextOn]}>
+            {t('form.everyDay')}
+          </Text>
         </Pressable>
         <View style={styles.dayGrid}>
-          {DAY_LABELS.map(({ day, short }) => {
+          {dayLabels.map(({ day, short }) => {
             const on = days.includes(day);
             return (
               <Pressable
@@ -259,12 +270,12 @@ export function PillForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.label}>How long?</Text>
+        <Text style={styles.label}>{t('form.howLongLabel')}</Text>
         {(
           [
-            { mode: 'keep' as const, title: 'Keep reminding me' },
-            { mode: 'until' as const, title: 'Until a date' },
-            { mode: 'days' as const, title: 'For a number of days' },
+            { mode: 'keep' as const, titleKey: 'form.keepReminding' },
+            { mode: 'until' as const, titleKey: 'form.untilDate' },
+            { mode: 'days' as const, titleKey: 'form.forDays' },
           ] as const
         ).map((opt) => (
           <Pressable
@@ -280,7 +291,7 @@ export function PillForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
                 durationMode === opt.mode && styles.choiceTextOn,
               ]}
             >
-              {opt.title}
+              {t(opt.titleKey)}
             </Text>
           </Pressable>
         ))}
@@ -307,7 +318,7 @@ export function PillForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
             ) : null}
             {Platform.OS === 'ios' && showUntilPicker ? (
               <BigButton
-                label="Done with date"
+                label={t('form.doneWithDate')}
                 onPress={() => setShowUntilPicker(false)}
                 variant="secondary"
               />
@@ -317,53 +328,35 @@ export function PillForm({ initial, submitLabel, onSubmit, onDelete }: Props) {
 
         {durationMode === 'days' ? (
           <View style={styles.subBlock}>
-            <Text style={styles.helper}>How many days?</Text>
+            <Text style={styles.helper}>{t('form.howManyDays')}</Text>
             <TextInput
               value={dayCount}
-              onChangeText={(t) => setDayCount(t.replace(/[^0-9]/g, ''))}
+              onChangeText={(value) => setDayCount(value.replace(/[^0-9]/g, ''))}
               keyboardType="number-pad"
               style={styles.input}
-              accessibilityLabel="Number of days"
+              accessibilityLabel={t('form.howManyDays')}
             />
           </View>
         ) : null}
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.label}>Reminders</Text>
-        <Pressable
-          onPress={() => setRemindOnTime((v) => !v)}
-          style={[styles.choice, remindOnTime && styles.choiceOn]}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: remindOnTime }}
-        >
-          <Text style={[styles.choiceText, remindOnTime && styles.choiceTextOn]}>
-            Remind me on time
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setRemindEarly((v) => !v)}
-          style={[styles.choice, remindEarly && styles.choiceOn]}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: remindEarly }}
-        >
-          <Text style={[styles.choiceText, remindEarly && styles.choiceTextOn]}>
-            Remind me 5 minutes early
-          </Text>
-        </Pressable>
+        <Text style={styles.label}>{t('form.remindersLabel')}</Text>
+        <Text style={styles.helper}>{t('form.remindersHelper')}</Text>
+        <ReminderOffsetsEditor value={offsets} onChange={setOffsets} />
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <BigButton
-        label={saving ? 'Saving…' : submitLabel}
+        label={saving ? t('common.saving') : submitLabel}
         onPress={handleSave}
         disabled={saving}
       />
 
       {onDelete ? (
         <View style={styles.deleteWrap}>
-          <BigButton label="Delete pill" variant="danger" onPress={confirmDelete} />
+          <BigButton label={t('form.deletePill')} variant="danger" onPress={confirmDelete} />
         </View>
       ) : null}
     </ScrollView>
@@ -472,7 +465,7 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.inkSoft,
   },
   dayChipTextOn: {
-    color: '#FFFFFF',
+    color: theme.colors.onPrimary,
   },
   subBlock: {
     gap: theme.spacing.sm,

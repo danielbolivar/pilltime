@@ -5,15 +5,14 @@ import { StyleSheet } from 'react-native-unistyles';
 type Props = {
   title: string;
   subtitle?: string;
-  brand?: boolean;
   right?: ReactNode;
 };
 
-export function ScreenHeader({ title, subtitle, brand = false, right }: Props) {
+export function ScreenHeader({ title, subtitle, right }: Props) {
   return (
     <View style={styles.wrap}>
       <View style={styles.textCol}>
-        <Text style={brand ? styles.brand : styles.title}>{title}</Text>
+        <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
       {right}
@@ -32,10 +31,6 @@ const styles = StyleSheet.create((theme) => ({
   textCol: {
     flex: 1,
     gap: theme.spacing.xs,
-  },
-  brand: {
-    ...theme.typography.brand,
-    color: theme.colors.primary,
   },
   title: {
     ...theme.typography.title,

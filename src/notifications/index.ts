@@ -3,15 +3,21 @@ import { Platform } from 'react-native';
 
 import {
   clockToKey,
+  describeReminderOffset,
   listOccurrenceDates,
   parseLocalDate,
   toExpoWeekday,
   toLocalDateString,
 } from '@/src/domain/schedule';
+import { t } from '@/src/i18n';
 import type { ClockTime, Pill } from '@/src/domain/types';
 
-const CHANNEL_ID = 'pilltime-reminders';
-const AHEAD_DAYS = 60;
+/** Bump id when channel sound settings must change (Android channels are sticky). */
+const CHANNEL_ID = 'pilltime-reminders-v2';
+/** Keep dated schedules short — Android caps ~500 alarms per app. */
+const AHEAD_DAYS = 14;
+/** Stay under the OS alarm limit with headroom. */
+const MAX_SCHEDULED = 400;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -24,12 +30,12 @@ Notifications.setNotificationHandler({
 
 export async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
+  // Omit `sound` so Android uses the system default notification sound.
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-    name: 'Pill reminders',
+    name: t('notifications.channelName'),
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#1F7A66',
-    sound: 'default',
+    lightColor: '#C2410C',
   });
 }
 
@@ -64,6 +70,14 @@ export async function getNotificationPermissionGranted(): Promise<boolean> {
   );
 }
 
+export async function cancelAllAppNotifications(): Promise<void> {
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  } catch {
+    // ignore
+  }
+}
+
 export async function cancelPillNotifications(ids: string[]): Promise<void> {
   await Promise.all(
     ids.map(async (id) => {
@@ -78,11 +92,11 @@ export async function cancelPillNotifications(ids: string[]): Promise<void> {
 
 function buildContent(pill: Pill, offsetMinutes: number) {
   const early = offsetMinutes < 0;
-  const mins = Math.abs(offsetMinutes);
+  const late = offsetMinutes > 0;
   return {
-    title: early ? `In ${mins} minute${mins === 1 ? '' : 's'}` : 'Time for your pill',
-    body: early ? `${pill.name}` : `Time for ${pill.name}`,
-    sound: true as const,
+    title: early || late ? describeReminderOffset(offsetMinutes) : t('notifications.timeForPill'),
+    body: early || late ? pill.name : t('notifications.timeForName', { name: pill.name }),
+    sound: true,
     data: {
       pillId: pill.id,
       screen: 'today',
@@ -100,41 +114,71 @@ function applyOffset(time: ClockTime, offsetMinutes: number): ClockTime {
   };
 }
 
-async function scheduleWeekly(
-  pill: Pill,
-  time: ClockTime,
-  offsetMinutes: number,
-): Promise<string[]> {
-  const ids: string[] = [];
-  const triggerTime = applyOffset(time, offsetMinutes);
-  const content = buildContent(pill, offsetMinutes);
-
-  for (const day of pill.daysOfWeek) {
-    const id = await Notifications.scheduleNotificationAsync({
-      content,
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-        weekday: toExpoWeekday(day),
-        hour: triggerTime.hour,
-        minute: triggerTime.minute,
-        channelId: CHANNEL_ID,
-      },
-    });
-    ids.push(id);
+async function safeSchedule(
+  request: Notifications.NotificationRequestInput,
+): Promise<string | null> {
+  try {
+    return await Notifications.scheduleNotificationAsync(request);
+  } catch (error) {
+    console.warn('Skipped scheduling a reminder:', error);
+    return null;
   }
-  return ids;
 }
 
-async function scheduleDatedWindow(
-  pill: Pill,
-  time: ClockTime,
-  offsetMinutes: number,
-): Promise<string[]> {
-  const ids: string[] = [];
+type Planned = {
+  pillId: string;
+  fireAt: number;
+  request: Notifications.NotificationRequestInput;
+};
+
+function planWeekly(pill: Pill, time: ClockTime, offsetMinutes: number): Planned[] {
+  const triggerTime = applyOffset(time, offsetMinutes);
+  const content = buildContent(pill, offsetMinutes);
+  const now = Date.now();
+  // Sort weekly near-term for budgeting — fireAt is next occurrence estimate
+  return pill.daysOfWeek.map((day) => {
+    const next = nextWeeklyFireDate(day, triggerTime);
+    return {
+      pillId: pill.id,
+      fireAt: Math.max(next.getTime(), now + 1),
+      request: {
+        content,
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+          weekday: toExpoWeekday(day),
+          hour: triggerTime.hour,
+          minute: triggerTime.minute,
+          channelId: CHANNEL_ID,
+        },
+      },
+    };
+  });
+}
+
+function nextWeeklyFireDate(day: number, time: ClockTime): Date {
+  const now = new Date();
+  const result = new Date(now);
+  const currentDay = now.getDay();
+  let delta = day - currentDay;
+  if (
+    delta < 0 ||
+    (delta === 0 &&
+      (now.getHours() > time.hour ||
+        (now.getHours() === time.hour && now.getMinutes() >= time.minute)))
+  ) {
+    delta += 7;
+  }
+  result.setDate(now.getDate() + delta);
+  result.setHours(time.hour, time.minute, 0, 0);
+  return result;
+}
+
+function planDatedWindow(pill: Pill, time: ClockTime, offsetMinutes: number): Planned[] {
   const today = toLocalDateString();
   const dates = listOccurrenceDates(pill, today, AHEAD_DAYS);
   const content = buildContent(pill, offsetMinutes);
   const now = Date.now();
+  const planned: Planned[] = [];
 
   for (const dateStr of dates) {
     const base = parseLocalDate(dateStr);
@@ -142,43 +186,73 @@ async function scheduleDatedWindow(
     const fireAt = new Date(base.getTime() + offsetMinutes * 60_000);
     if (fireAt.getTime() <= now) continue;
 
-    const id = await Notifications.scheduleNotificationAsync({
-      content: {
-        ...content,
-        data: {
-          ...content.data,
-          date: dateStr,
-          time: clockToKey(time),
+    planned.push({
+      pillId: pill.id,
+      fireAt: fireAt.getTime(),
+      request: {
+        content: {
+          ...content,
+          data: {
+            ...content.data,
+            date: dateStr,
+            time: clockToKey(time),
+          },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: fireAt,
+          channelId: CHANNEL_ID,
         },
       },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: fireAt,
-        channelId: CHANNEL_ID,
-      },
     });
-    ids.push(id);
   }
 
-  return ids;
+  return planned;
 }
 
-export async function schedulePillNotifications(pill: Pill): Promise<string[]> {
-  await ensureAndroidChannel();
-
-  const ids: string[] = [];
-
+function planPill(pill: Pill): Planned[] {
+  const planned: Planned[] = [];
   for (const time of pill.times) {
     for (const offset of pill.reminderOffsetsMinutes) {
       if (pill.duration.type === 'keep') {
-        ids.push(...(await scheduleWeekly(pill, time, offset)));
+        planned.push(...planWeekly(pill, time, offset));
       } else {
-        ids.push(...(await scheduleDatedWindow(pill, time, offset)));
+        planned.push(...planDatedWindow(pill, time, offset));
       }
     }
   }
+  return planned;
+}
 
-  return ids;
+/**
+ * Wipe OS schedules and rebuild under the Android alarm budget.
+ * Returns notification ids keyed by pill id.
+ */
+export async function rebuildAllNotifications(
+  pills: Pill[],
+): Promise<Record<string, string[]>> {
+  await ensureAndroidChannel();
+  await cancelAllAppNotifications();
+
+  const planned = pills.flatMap(planPill).sort((a, b) => a.fireAt - b.fireAt);
+  const limited = planned.slice(0, MAX_SCHEDULED);
+  const byPill: Record<string, string[]> = Object.fromEntries(
+    pills.map((pill) => [pill.id, [] as string[]]),
+  );
+
+  for (const item of limited) {
+    const id = await safeSchedule(item.request);
+    if (!id) break;
+    byPill[item.pillId] = [...(byPill[item.pillId] ?? []), id];
+  }
+
+  return byPill;
+}
+
+/** Prefer rebuildAllNotifications — this helper is only for single-pill tests. */
+export async function schedulePillNotifications(pill: Pill): Promise<string[]> {
+  const map = await rebuildAllNotifications([pill]);
+  return map[pill.id] ?? [];
 }
 
 export function addNotificationResponseListener(

@@ -6,9 +6,11 @@ import { AppSafeArea } from '@/src/components/AppSafeArea';
 import { PillForm } from '@/src/components/PillForm';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import type { PillInput } from '@/src/domain/types';
+import { useT } from '@/src/i18n/useT';
 import { usePillStore } from '@/src/store/pillStore';
 
 export function EditPillScreen() {
+  const t = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const pill = usePillStore((s) => s.pills.find((p) => p.id === id));
@@ -19,9 +21,12 @@ export function EditPillScreen() {
     return (
       <AppSafeArea>
         <View style={styles.headerPad}>
-          <ScreenHeader title="Pill not found" subtitle="It may have been deleted." />
+          <ScreenHeader
+            title={t('editPill.notFoundTitle')}
+            subtitle={t('editPill.notFoundBody')}
+          />
           <Pressable onPress={() => router.back()}>
-            <Text style={styles.cancelText}>Go back</Text>
+            <Text style={styles.cancelText}>{t('common.goBack')}</Text>
           </Pressable>
         </View>
       </AppSafeArea>
@@ -42,17 +47,17 @@ export function EditPillScreen() {
     <AppSafeArea>
       <View style={styles.headerPad}>
         <ScreenHeader
-          title="Edit pill"
+          title={t('editPill.title')}
           subtitle={pill.name}
           right={
             <Pressable onPress={() => router.back()} style={styles.cancel}>
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={styles.cancelText}>{t('common.cancel')}</Text>
             </Pressable>
           }
         />
       </View>
       <PillForm
-        submitLabel="Save changes"
+        submitLabel={t('editPill.save')}
         onSubmit={onSubmit}
         onDelete={onDelete}
         initial={{

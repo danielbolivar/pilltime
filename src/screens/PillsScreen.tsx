@@ -5,24 +5,31 @@ import { StyleSheet } from 'react-native-unistyles';
 import { AppSafeArea } from '@/src/components/AppSafeArea';
 import { BigButton } from '@/src/components/BigButton';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
-import { describeDays, describeDuration, formatClockTime } from '@/src/domain/schedule';
+import {
+  describeDays,
+  describeDuration,
+  describeReminderOffsets,
+  formatClockTime,
+} from '@/src/domain/schedule';
+import { useT } from '@/src/i18n/useT';
 import { usePillStore } from '@/src/store/pillStore';
 
 export function PillsScreen() {
+  const t = useT();
   const router = useRouter();
   const pills = usePillStore((s) => s.pills);
 
   return (
     <AppSafeArea>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <ScreenHeader title="My pills" subtitle="Tap a pill to change it." />
+        <ScreenHeader title={t('pills.title')} subtitle={t('pills.subtitle')} />
 
-        <BigButton label="Add pill" onPress={() => router.push('/pill/new')} />
+        <BigButton label={t('pills.addPill')} onPress={() => router.push('/pill/new')} />
 
         {pills.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No pills yet</Text>
-            <Text style={styles.emptyBody}>Add a pill to start getting reminders.</Text>
+            <Text style={styles.emptyTitle}>{t('pills.emptyTitle')}</Text>
+            <Text style={styles.emptyBody}>{t('pills.emptyBody')}</Text>
           </View>
         ) : (
           <View style={styles.list}>
@@ -32,14 +39,20 @@ export function PillsScreen() {
                 style={styles.row}
                 onPress={() => router.push(`/pill/${pill.id}`)}
                 accessibilityRole="button"
-                accessibilityLabel={`Edit ${pill.name}`}
+                accessibilityLabel={t('pills.editA11y', { name: pill.name })}
               >
-                <Text style={styles.name}>{pill.name}</Text>
+                <View style={styles.rowTop}>
+                  <Text style={styles.name}>{pill.name}</Text>
+                  <Text style={styles.editHint}>{t('common.edit')}</Text>
+                </View>
                 <Text style={styles.meta}>
-                  {pill.times.map((t) => formatClockTime(t)).join(' · ')}
+                  {pill.times.map((time) => formatClockTime(time)).join(' · ')}
                 </Text>
                 <Text style={styles.meta}>
                   {describeDays(pill.daysOfWeek)} · {describeDuration(pill.duration)}
+                </Text>
+                <Text style={styles.meta}>
+                  {describeReminderOffsets(pill.reminderOffsetsMinutes)}
                 </Text>
               </Pressable>
             ))}
@@ -69,9 +82,20 @@ const styles = StyleSheet.create((theme) => ({
     minHeight: 88,
     justifyContent: 'center',
   },
+  rowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
   name: {
     ...theme.typography.headline,
     color: theme.colors.ink,
+    flex: 1,
+  },
+  editHint: {
+    ...theme.typography.bodyBold,
+    color: theme.colors.primary,
   },
   meta: {
     ...theme.typography.caption,

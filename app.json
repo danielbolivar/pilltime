@@ -12,13 +12,15 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.pilltime.app",
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
       "package": "com.pilltime.app",
       "adaptiveIcon": {
-        "backgroundColor": "#1F7A66",
+        "backgroundColor": "#C2410C",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -43,7 +45,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#1F7A66",
+          "color": "#C2410C",
           "sounds": []
         }
       ],
@@ -52,10 +54,40 @@
         {
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#F3F7F5"
+          "backgroundColor": "#FFF9F2"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-localization",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "NextDose",
+              "label": "PillTime — Next dose",
+              "description": "Shows your next pill and time",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "updatePeriodMillis": 1800000,
+              "resizeMode": "horizontal|vertical"
+            },
+            {
+              "name": "Today",
+              "label": "PillTime — Today",
+              "description": "Today’s pills at a glance",
+              "minWidth": "250dp",
+              "minHeight": "120dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "updatePeriodMillis": 1800000,
+              "resizeMode": "horizontal|vertical"
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

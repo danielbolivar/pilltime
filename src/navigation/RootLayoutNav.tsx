@@ -7,18 +7,24 @@ import {
 import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { AppState, View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { Appearance, AppState, View } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import 'react-native-reanimated';
 
+import { applyLanguage } from '@/src/i18n';
 import { addNotificationResponseListener } from '@/src/notifications';
 import { usePillStore } from '@/src/store/pillStore';
+import { applyAppearance } from '@/src/theme/unistyles';
+import { syncHomeWidgets } from '@/src/widgets/update';
 
 SplashScreen.preventAutoHideAsync();
 
 export function RootLayoutNav() {
   const router = useRouter();
+  const { theme } = useUnistyles();
   const hydrated = usePillStore((s) => s.hydrated);
+  const appearance = usePillStore((s) => s.settings.appearance);
+  const language = usePillStore((s) => s.settings.language);
   const resyncAllNotifications = usePillStore((s) => s.resyncAllNotifications);
   const [fontsLoaded, fontError] = useFonts({
     Nunito_500Medium,
@@ -46,6 +52,20 @@ export function RootLayoutNav() {
   }, [fontsLoaded, hydrated]);
 
   useEffect(() => {
+    if (!hydrated) return;
+    applyLanguage(language);
+    applyAppearance(appearance);
+  }, [hydrated, language, appearance]);
+
+  useEffect(() => {
+    if (!hydrated || appearance !== 'system') return;
+    const sub = Appearance.addChangeListener(() => {
+      applyAppearance('system');
+    });
+    return () => sub.remove();
+  }, [hydrated, appearance]);
+
+  useEffect(() => {
     const sub = addNotificationResponseListener(() => {
       router.push('/(tabs)');
     });
@@ -54,24 +74,30 @@ export function RootLayoutNav() {
 
   useEffect(() => {
     if (!hydrated) return;
-    resyncAllNotifications();
+    // One rebuild on launch clears leaked alarms; avoid doing this on every resume.
+    void resyncAllNotifications();
+    void syncHomeWidgets();
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        resyncAllNotifications();
+        const current = usePillStore.getState().settings;
+        applyLanguage(current.language);
+        applyAppearance(current.appearance);
+        void syncHomeWidgets();
       }
     });
     return () => sub.remove();
   }, [hydrated, resyncAllNotifications]);
 
   if (!fontsLoaded || !hydrated) {
-    return <View style={styles.boot} />;
+    return <View style={[styles.boot, { backgroundColor: theme.colors.bg }]} />;
   }
 
   return (
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: styles.stack,
+        // Native stack caches contentStyle — bind via useUnistyles so it updates.
+        contentStyle: { backgroundColor: theme.colors.bg },
         animation: 'fade',
       }}
     >
@@ -83,12 +109,8 @@ export function RootLayoutNav() {
   );
 }
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create({
   boot: {
     flex: 1,
-    backgroundColor: theme.colors.bg,
   },
-  stack: {
-    backgroundColor: theme.colors.bg,
-  },
-}));
+});

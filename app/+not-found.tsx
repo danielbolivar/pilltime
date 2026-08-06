@@ -21,13 +21,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#F3F7F5',
+    backgroundColor: '#FFF9F2',
     gap: 16,
   },
   title: {
     fontFamily: 'Nunito_700Bold',
     fontSize: 22,
-    color: '#1B2B26',
+    color: '#141210',
   },
   link: {
     marginTop: 8,
@@ -35,6 +35,6 @@ const styles = StyleSheet.create({
   linkText: {
     fontFamily: 'Nunito_700Bold',
     fontSize: 18,
-    color: '#1F7A66',
+    color: '#C2410C',
   },
 });

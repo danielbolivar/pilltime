@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 type Props = {
@@ -33,27 +33,33 @@ export function BigButton({
 
 const styles = StyleSheet.create((theme) => ({
   base: {
-    minHeight: 56,
+    minHeight: 60,
     borderRadius: theme.radii.md,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   primary: {
     backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primaryPressed,
   },
   secondary: {
-    backgroundColor: theme.colors.bgMuted,
+    backgroundColor: theme.colors.bgElevated,
+    borderColor: theme.colors.ink,
   },
   danger: {
     backgroundColor: theme.colors.dangerSoft,
+    borderColor: theme.colors.danger,
   },
   ghost: {
     backgroundColor: 'transparent',
+    borderColor: 'transparent',
   },
   pressed: {
-    opacity: 0.88,
+    opacity: 0.9,
   },
   disabled: {
     opacity: 0.45,
@@ -63,7 +69,7 @@ const styles = StyleSheet.create((theme) => ({
     textAlign: 'center',
   },
   primaryLabel: {
-    color: '#FFFFFF',
+    color: theme.colors.onPrimary,
   },
   secondaryLabel: {
     color: theme.colors.ink,

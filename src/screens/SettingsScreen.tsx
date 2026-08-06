@@ -1,18 +1,42 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { AppSafeArea } from '@/src/components/AppSafeArea';
 import { BigButton } from '@/src/components/BigButton';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
+import type { AppSettings } from '@/src/domain/types';
+import { applyLanguage } from '@/src/i18n';
+import { useT } from '@/src/i18n/useT';
 import {
   getNotificationPermissionGranted,
   requestNotificationPermissions,
 } from '@/src/notifications';
 import { usePillStore } from '@/src/store/pillStore';
+import { applyAppearance, type AppearanceMode } from '@/src/theme/unistyles';
+
+type ChoiceProps = {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+};
+
+function ChoiceRow({ label, selected, onPress }: ChoiceProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.choice, selected && styles.choiceOn]}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+    >
+      <Text style={[styles.choiceText, selected && styles.choiceTextOn]}>{label}</Text>
+    </Pressable>
+  );
+}
 
 export function SettingsScreen() {
+  const t = useT();
   const router = useRouter();
   const settings = usePillStore((s) => s.settings);
   const updateSettings = usePillStore((s) => s.updateSettings);
@@ -33,40 +57,105 @@ export function SettingsScreen() {
     updateSettings({ notificationsEnabled: result.granted });
     if (result.granted) {
       await resyncAllNotifications();
-      setMessage('Reminders are on. We’ll ping you for your pills.');
+      setMessage(t('settings.onMessage'));
     } else if (!result.canAskAgain) {
-      setMessage('Reminders are blocked. Open system settings to allow them.');
+      setMessage(t('settings.blockedMessage'));
     } else {
-      setMessage('Reminders were not allowed. You can try again anytime.');
+      setMessage(t('settings.deniedMessage'));
     }
     setBusy(false);
+  };
+
+  const setAppearance = (appearance: AppearanceMode) => {
+    updateSettings({ appearance });
+    applyAppearance(appearance);
+  };
+
+  const setLanguage = (language: AppSettings['language']) => {
+    applyLanguage(language);
+    updateSettings({ language });
   };
 
   return (
     <AppSafeArea>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <ScreenHeader
-          title="Settings"
-          subtitle="Allow reminders so PillTime can ping you."
+          title={t('settings.title')}
+          subtitle={t('settings.subtitle')}
+          right={
+            <Pressable
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.goBack')}
+              style={styles.back}
+            >
+              <Text style={styles.backText}>{t('common.goBack')}</Text>
+            </Pressable>
+          }
         />
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Notifications</Text>
+          <Text style={styles.cardTitle}>{t('settings.appearanceTitle')}</Text>
+          <Text style={styles.cardBody}>{t('settings.appearanceBody')}</Text>
+          <ChoiceRow
+            label={t('settings.appearanceDay')}
+            selected={settings.appearance === 'day'}
+            onPress={() => setAppearance('day')}
+          />
+          <ChoiceRow
+            label={t('settings.appearanceNight')}
+            selected={settings.appearance === 'night'}
+            onPress={() => setAppearance('night')}
+          />
+          <ChoiceRow
+            label={t('settings.appearanceHighContrast')}
+            selected={settings.appearance === 'highContrast'}
+            onPress={() => setAppearance('highContrast')}
+          />
+          <ChoiceRow
+            label={t('settings.appearanceSystem')}
+            selected={settings.appearance === 'system'}
+            onPress={() => setAppearance('system')}
+          />
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{t('settings.languageTitle')}</Text>
+          <Text style={styles.cardBody}>{t('settings.languageBody')}</Text>
+          <ChoiceRow
+            label={t('settings.languageSystem')}
+            selected={settings.language === 'system'}
+            onPress={() => setLanguage('system')}
+          />
+          <ChoiceRow
+            label={t('settings.languageEnglish')}
+            selected={settings.language === 'en'}
+            onPress={() => setLanguage('en')}
+          />
+          <ChoiceRow
+            label={t('settings.languageSpanish')}
+            selected={settings.language === 'es'}
+            onPress={() => setLanguage('es')}
+          />
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{t('settings.notifications')}</Text>
           <Text style={styles.cardBody}>
             {granted
-              ? 'Reminders are allowed on this phone.'
+              ? t('settings.allowed')
               : granted === false
-                ? 'Reminders are not allowed yet.'
-                : 'Checking…'}
+                ? t('settings.notAllowed')
+                : t('settings.checking')}
           </Text>
           <BigButton
-            label={busy ? 'Please wait…' : 'Allow reminders'}
+            label={busy ? t('settings.pleaseWait') : t('settings.allow')}
             onPress={allowReminders}
             disabled={busy || granted === true}
           />
           {granted === false ? (
             <BigButton
-              label="Open phone settings"
+              label={t('settings.openPhoneSettings')}
               variant="secondary"
               onPress={() => Linking.openSettings()}
             />
@@ -74,20 +163,11 @@ export function SettingsScreen() {
           {message ? <Text style={styles.message}>{message}</Text> : null}
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Default reminders</Text>
-          <Text style={styles.cardBody}>
-            New pills remind you on time and 5 minutes early. You can change this when you add a
-            pill.
-          </Text>
-          <Text style={styles.defaults}>
-            {settings.defaultReminderOffsetsMinutes.includes(-5) ? '✓ 5 minutes early' : ''}
-            {'\n'}
-            {settings.defaultReminderOffsetsMinutes.includes(0) ? '✓ On time' : ''}
-          </Text>
-        </View>
-
-        <BigButton label="Back to Today" variant="secondary" onPress={() => router.back()} />
+        <BigButton
+          label={t('settings.backToToday')}
+          variant="secondary"
+          onPress={() => router.back()}
+        />
       </ScrollView>
     </AppSafeArea>
   );
@@ -104,7 +184,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.radii.lg,
     padding: theme.spacing.lg,
     gap: theme.spacing.md,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: theme.colors.border,
   },
   cardTitle: {
@@ -115,12 +195,45 @@ const styles = StyleSheet.create((theme) => ({
     ...theme.typography.body,
     color: theme.colors.inkSoft,
   },
-  defaults: {
+  choice: {
+    minHeight: 56,
+    borderRadius: theme.radii.md,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.bg,
+    paddingHorizontal: theme.spacing.md,
+    justifyContent: 'center',
+  },
+  choiceOn: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primarySoft,
+  },
+  choiceText: {
+    ...theme.typography.body,
+    color: theme.colors.ink,
+  },
+  choiceTextOn: {
     ...theme.typography.bodyBold,
     color: theme.colors.primary,
   },
   message: {
     ...theme.typography.body,
     color: theme.colors.ink,
+  },
+  back: {
+    minHeight: 56,
+    minWidth: 88,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radii.md,
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primarySoft,
+  },
+  backText: {
+    ...theme.typography.button,
+    color: theme.colors.primary,
   },
 }));

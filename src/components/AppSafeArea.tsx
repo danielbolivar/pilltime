@@ -1,18 +1,27 @@
 import type { ReactNode } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 type Props = {
   children: ReactNode;
 };
 
+/**
+ * SafeAreaView is a third-party component — Unistyles ShadowTree won't update
+ * its style on theme change, so we bind backgroundColor via useUnistyles.
+ */
 export function AppSafeArea({ children }: Props) {
-  return <SafeAreaView style={styles.safe}>{children}</SafeAreaView>;
+  const { theme } = useUnistyles();
+
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.bg }]}>
+      {children}
+    </SafeAreaView>
+  );
 }
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: theme.colors.bg,
   },
-}));
+});

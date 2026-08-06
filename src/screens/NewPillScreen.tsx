@@ -6,12 +6,13 @@ import { AppSafeArea } from '@/src/components/AppSafeArea';
 import { PillForm } from '@/src/components/PillForm';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import type { PillInput } from '@/src/domain/types';
+import { useT } from '@/src/i18n/useT';
 import { usePillStore } from '@/src/store/pillStore';
 
 export function NewPillScreen() {
+  const t = useT();
   const router = useRouter();
   const addPill = usePillStore((s) => s.addPill);
-  const settings = usePillStore((s) => s.settings);
 
   const onSubmit = async (input: PillInput) => {
     await addPill(input);
@@ -22,24 +23,24 @@ export function NewPillScreen() {
     <AppSafeArea>
       <View style={styles.headerPad}>
         <ScreenHeader
-          title="Add pill"
-          subtitle="A few easy questions."
+          title={t('newPill.title')}
+          subtitle={t('newPill.subtitle')}
           right={
             <Pressable onPress={() => router.back()} style={styles.cancel}>
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={styles.cancelText}>{t('common.cancel')}</Text>
             </Pressable>
           }
         />
       </View>
       <PillForm
-        submitLabel="Save pill"
+        submitLabel={t('newPill.save')}
         onSubmit={onSubmit}
         initial={{
           name: '',
           times: [{ hour: 9, minute: 0 }],
           daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
           duration: { type: 'keep' },
-          reminderOffsetsMinutes: settings.defaultReminderOffsetsMinutes,
+          reminderOffsetsMinutes: [-5, 0],
         }}
       />
     </AppSafeArea>

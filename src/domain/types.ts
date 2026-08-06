@@ -38,8 +38,9 @@ export type DoseLogEntry = {
 };
 
 export type AppSettings = {
-  defaultReminderOffsetsMinutes: number[];
   notificationsEnabled: boolean;
+  appearance: 'day' | 'night' | 'highContrast' | 'system';
+  language: 'system' | 'en' | 'es';
 };
 
 export type TodayDose = {

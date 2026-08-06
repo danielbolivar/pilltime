@@ -16,10 +16,11 @@ import type {
   TodayDose,
 } from '@/src/domain/types';
 import {
-  cancelPillNotifications,
+  cancelAllAppNotifications,
+  rebuildAllNotifications,
   requestNotificationPermissions,
-  schedulePillNotifications,
 } from '@/src/notifications';
+import { syncHomeWidgets } from '@/src/widgets/update';
 
 type PillStore = {
   pills: Pill[];
@@ -42,9 +43,34 @@ type PillStore = {
   resyncAllNotifications: () => Promise<void>;
 };
 
+async function applyNotificationIds(
+  set: (fn: (state: PillStore) => Partial<PillStore>) => void,
+  get: () => PillStore,
+) {
+  const permission = await requestNotificationPermissions();
+  if (!permission.granted) {
+    await cancelAllAppNotifications();
+    set((state) => ({
+      settings: { ...state.settings, notificationsEnabled: false },
+      pills: state.pills.map((pill) => ({ ...pill, notificationIds: [] })),
+    }));
+    return;
+  }
+
+  const idsByPill = await rebuildAllNotifications(get().pills);
+  set((state) => ({
+    settings: { ...state.settings, notificationsEnabled: true },
+    pills: state.pills.map((pill) => ({
+      ...pill,
+      notificationIds: idsByPill[pill.id] ?? [],
+    })),
+  }));
+}
+
 const defaultSettings: AppSettings = {
-  defaultReminderOffsetsMinutes: [-5, 0],
   notificationsEnabled: false,
+  appearance: 'day',
+  language: 'system',
 };
 
 export const usePillStore = create<PillStore>()(
@@ -71,27 +97,15 @@ export const usePillStore = create<PillStore>()(
           updatedAt: now,
         };
 
-        const permission = await requestNotificationPermissions();
-        const notificationIds = permission.granted
-          ? await schedulePillNotifications(pill)
-          : [];
-
-        const saved = { ...pill, notificationIds };
-        set((state) => ({
-          pills: [...state.pills, saved],
-          settings: {
-            ...state.settings,
-            notificationsEnabled: permission.granted || state.settings.notificationsEnabled,
-          },
-        }));
-        return saved;
+        set((state) => ({ pills: [...state.pills, pill] }));
+        await applyNotificationIds(set, get);
+        void syncHomeWidgets();
+        return get().pills.find((p) => p.id === pill.id) ?? pill;
       },
 
       updatePill: async (id, input) => {
         const existing = get().pills.find((p) => p.id === id);
         if (!existing) return null;
-
-        await cancelPillNotifications(existing.notificationIds);
 
         const updated: Pill = {
           ...existing,
@@ -105,27 +119,15 @@ export const usePillStore = create<PillStore>()(
           notificationIds: [],
         };
 
-        const permission = await requestNotificationPermissions();
-        const notificationIds = permission.granted
-          ? await schedulePillNotifications(updated)
-          : [];
-
-        const saved = { ...updated, notificationIds };
         set((state) => ({
-          pills: state.pills.map((p) => (p.id === id ? saved : p)),
-          settings: {
-            ...state.settings,
-            notificationsEnabled: permission.granted || state.settings.notificationsEnabled,
-          },
+          pills: state.pills.map((p) => (p.id === id ? updated : p)),
         }));
-        return saved;
+        await applyNotificationIds(set, get);
+        void syncHomeWidgets();
+        return get().pills.find((p) => p.id === id) ?? updated;
       },
 
       deletePill: async (id) => {
-        const existing = get().pills.find((p) => p.id === id);
-        if (existing) {
-          await cancelPillNotifications(existing.notificationIds);
-        }
         set((state) => {
           const nextLog = { ...state.doseLog };
           for (const key of Object.keys(nextLog)) {
@@ -138,6 +140,8 @@ export const usePillStore = create<PillStore>()(
             doseLog: nextLog,
           };
         });
+        await applyNotificationIds(set, get);
+        void syncHomeWidgets();
       },
 
       setDoseStatus: (pillId, date, timeKey, status) => {
@@ -153,6 +157,7 @@ export const usePillStore = create<PillStore>()(
         set((state) => ({
           doseLog: { ...state.doseLog, [key]: entry },
         }));
+        void syncHomeWidgets();
       },
 
       clearDoseStatus: (pillId, date, timeKey) => {
@@ -162,12 +167,14 @@ export const usePillStore = create<PillStore>()(
           delete next[key];
           return { doseLog: next };
         });
+        void syncHomeWidgets();
       },
 
       updateSettings: (partial) => {
         set((state) => ({
           settings: { ...state.settings, ...partial },
         }));
+        void syncHomeWidgets();
       },
 
       getTodayDoses: (now = new Date()) => {
@@ -176,25 +183,7 @@ export const usePillStore = create<PillStore>()(
       },
 
       resyncAllNotifications: async () => {
-        const { pills } = get();
-        const permission = await requestNotificationPermissions();
-        if (!permission.granted) {
-          set((state) => ({
-            settings: { ...state.settings, notificationsEnabled: false },
-          }));
-          return;
-        }
-
-        const nextPills: Pill[] = [];
-        for (const pill of pills) {
-          await cancelPillNotifications(pill.notificationIds);
-          const notificationIds = await schedulePillNotifications(pill);
-          nextPills.push({ ...pill, notificationIds });
-        }
-        set((state) => ({
-          pills: nextPills,
-          settings: { ...state.settings, notificationsEnabled: true },
-        }));
+        await applyNotificationIds(set, get);
       },
     }),
     {
@@ -206,7 +195,10 @@ export const usePillStore = create<PillStore>()(
         settings: state.settings,
       }),
       onRehydrateStorage: () => (state) => {
-        state?.setHydrated(true);
+        if (state) {
+          state.settings = { ...defaultSettings, ...state.settings };
+          state.setHydrated(true);
+        }
       },
     },
   ),

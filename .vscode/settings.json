@@ -3,5 +3,11 @@
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit",
     "source.sortMembers": "explicit"
+  },
+  "terminal.integrated.env.windows": {
+    "JAVA_HOME": "C:\\Program Files\\Android\\Android Studio\\jbr",
+    "ANDROID_HOME": "C:\\Users\\danie\\AppData\\Local\\Android\\Sdk",
+    "ANDROID_SDK_ROOT": "C:\\Users\\danie\\AppData\\Local\\Android\\Sdk",
+    "PATH": "C:\\Program Files\\Android\\Android Studio\\jbr\\bin;C:\\Users\\danie\\AppData\\Local\\Android\\Sdk\\platform-tools;C:\\Users\\danie\\AppData\\Local\\Android\\Sdk\\emulator;${env:PATH}"
   }
 }
