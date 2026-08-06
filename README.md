@@ -30,6 +30,10 @@ npx expo start --dev-client
 
 iOS project files are kept for later; build on a Mac when you have one.
 
+## Looking for iOS testers
+
+We mainly develop and test on Android. If you have a Mac and an iPhone (or an iOS simulator) and can help us try PillTime on iOS — install, take a few pills through the flow, and tell us what breaks — please get in touch. Any help is welcome.
+
 ## App map
 
 - **Today** — what to take now
