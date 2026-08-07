@@ -1,6 +1,7 @@
 export const en = {
   tabs: {
     today: 'Today',
+    calendar: 'Calendar',
     myPills: 'My pills',
   },
   common: {
@@ -16,16 +17,31 @@ export const en = {
   },
   today: {
     title: 'Today',
+    yesterday: 'Yesterday',
+    sectionToday: 'Today',
+    yesterdayCollapsed: '%{count} still open — tap to show',
+    yesterdayCollapsed_other: '%{count} still open — tap to show',
+    yesterdayHide: 'Hide yesterday',
     subtitleEmpty: 'Add a pill and we’ll remind you.',
     subtitleDone: 'You’re all done for now.',
     subtitleNext: 'Next up: %{name} at %{time}',
     subtitleList: 'Here’s what to take today.',
+    subtitleYesterdayPending: 'Still open from yesterday (%{count}).',
+    subtitleYesterdayPending_other: 'Still open from yesterday (%{count}).',
     emptyTitle: 'Add your first pill',
     emptyBody: 'Add the name, the time, and which days. We’ll remind you from there.',
     nothingTitle: 'Nothing due today',
     nothingBody: 'No pills are scheduled for today. You can change days in My pills.',
     addPill: 'Add pill',
     myPills: 'My pills',
+  },
+  calendar: {
+    title: 'Calendar',
+    subtitle: 'Tap a day to see what you took.',
+    emptyDay: 'Nothing scheduled this day.',
+    futureNote: 'You can mark these on that day.',
+    prevMonth: 'Previous month',
+    nextMonth: 'Next month',
   },
   dose: {
     overdue: 'Overdue',
@@ -174,6 +190,9 @@ export const en = {
     summary: '%{taken} of %{total} done',
     emptyToday: 'Nothing scheduled today',
     more: '+%{count} more',
+    monthTitle: 'This month',
+    weekTitle: 'This week',
+    upcoming: 'Next up',
   },
   notFound: {
     title: 'This screen doesn’t exist.',

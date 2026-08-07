@@ -3,6 +3,7 @@ import type { TranslationKeys } from './en';
 export const es: TranslationKeys = {
   tabs: {
     today: 'Hoy',
+    calendar: 'Calendario',
     myPills: 'Mis pastillas',
   },
   common: {
@@ -18,16 +19,31 @@ export const es: TranslationKeys = {
   },
   today: {
     title: 'Hoy',
+    yesterday: 'Ayer',
+    sectionToday: 'Hoy',
+    yesterdayCollapsed: '%{count} pendiente — toca para ver',
+    yesterdayCollapsed_other: '%{count} pendientes — toca para ver',
+    yesterdayHide: 'Ocultar ayer',
     subtitleEmpty: 'Añade una pastilla y te recordaremos.',
     subtitleDone: 'Ya estás al día.',
     subtitleNext: 'Siguiente: %{name} a las %{time}',
     subtitleList: 'Esto es lo que toca hoy.',
+    subtitleYesterdayPending: 'Aún pendiente de ayer (%{count}).',
+    subtitleYesterdayPending_other: 'Aún pendientes de ayer (%{count}).',
     emptyTitle: 'Añade tu primera pastilla',
     emptyBody: 'Pon el nombre, la hora y los días. Nosotros te lo recordamos.',
     nothingTitle: 'Nada pendiente hoy',
     nothingBody: 'Hoy no hay pastillas programadas. Puedes cambiar los días en Mis pastillas.',
     addPill: 'Añadir pastilla',
     myPills: 'Mis pastillas',
+  },
+  calendar: {
+    title: 'Calendario',
+    subtitle: 'Toca un día para ver lo que tomaste.',
+    emptyDay: 'Nada programado este día.',
+    futureNote: 'Podrás marcarlas ese día.',
+    prevMonth: 'Mes anterior',
+    nextMonth: 'Mes siguiente',
   },
   dose: {
     overdue: 'Atrasada',
@@ -176,6 +192,9 @@ export const es: TranslationKeys = {
     summary: '%{taken} de %{total} hechas',
     emptyToday: 'Nada programado hoy',
     more: '+%{count} más',
+    monthTitle: 'Este mes',
+    weekTitle: 'Esta semana',
+    upcoming: 'Siguientes',
   },
   notFound: {
     title: 'Esta pantalla no existe.',

@@ -3,18 +3,32 @@ import type { WidgetRepresentation } from 'react-native-android-widget';
 
 import { paletteForAppearance } from './colors';
 import { loadWidgetSnapshot, type WidgetSnapshot } from './data';
+import { MonthAgendaWidget } from './MonthAgendaWidget';
 import { NextDoseWidget } from './NextDoseWidget';
 import { TodayWidget } from './TodayWidget';
 
 export const WIDGET_NAMES = {
   NextDose: 'NextDose',
   Today: 'Today',
+  MonthAgenda: 'MonthAgenda',
 } as const;
 
 export type WidgetName = (typeof WIDGET_NAMES)[keyof typeof WIDGET_NAMES];
 
 function renderWithPalette(name: string, snapshot: WidgetSnapshot, mode: 'light' | 'dark') {
   const colors = paletteForAppearance(snapshot.settings.appearance, mode);
+
+  if (name === WIDGET_NAMES.MonthAgenda) {
+    return (
+      <MonthAgendaWidget
+        colors={colors}
+        weekTitle={snapshot.weekTitle}
+        todayDate={snapshot.todayDate}
+        weekMarks={snapshot.weekMarks}
+        upcoming={snapshot.upcoming}
+      />
+    );
+  }
 
   if (name === WIDGET_NAMES.Today) {
     return (

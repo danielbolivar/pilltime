@@ -52,6 +52,19 @@ export function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="calendar"
+        options={{
+          title: t('tabs.calendar'),
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabIcon
+              name={focused ? 'calendar' : 'calendar-outline'}
+              color={String(color)}
+              size={size}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="pills"
         options={{
           title: t('tabs.myPills'),

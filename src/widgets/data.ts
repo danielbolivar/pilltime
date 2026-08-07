@@ -1,8 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
+  buildWeekDates,
+  getDayDoseSummary,
+  getHomeWindowPendingDoses,
   getNextPendingDose,
   getTodayDoses,
+  toLocalDateString,
+  type DayDoseSummary,
 } from '@/src/domain/schedule';
 import type {
   AppSettings,
@@ -10,7 +15,7 @@ import type {
   Pill,
   TodayDose,
 } from '@/src/domain/types';
-import { applyLanguage } from '@/src/i18n';
+import { applyLanguage, t } from '@/src/i18n';
 
 const STORE_KEY = 'pilltime-store';
 
@@ -26,6 +31,13 @@ const defaultSettings: AppSettings = {
   language: 'system',
 };
 
+export type WeekDayMark = {
+  date: string;
+  dayNum: number;
+  weekdayShort: string;
+  summary: DayDoseSummary;
+};
+
 export type WidgetSnapshot = {
   pills: Pill[];
   doseLog: Record<string, DoseLogEntry>;
@@ -35,6 +47,10 @@ export type WidgetSnapshot = {
   pendingCount: number;
   takenCount: number;
   totalCount: number;
+  upcoming: TodayDose[];
+  weekMarks: WeekDayMark[];
+  weekTitle: string;
+  todayDate: string;
 };
 
 export async function loadWidgetSnapshot(now = new Date()): Promise<WidgetSnapshot> {
@@ -57,10 +73,20 @@ export async function loadWidgetSnapshot(now = new Date()): Promise<WidgetSnapsh
 
   applyLanguage(settings.language);
 
+  const todayDate = toLocalDateString(now);
   const doses = getTodayDoses(pills, doseLog, now);
-  const next = getNextPendingDose(doses);
+  const upcoming = getHomeWindowPendingDoses(pills, doseLog, now);
+  const next = getNextPendingDose(upcoming) ?? getNextPendingDose(doses);
   const pendingCount = doses.filter((d) => d.status === 'pending').length;
   const takenCount = doses.filter((d) => d.status === 'taken').length;
+
+  const weekDates = buildWeekDates(now);
+  const weekMarks: WeekDayMark[] = weekDates.map((date, index) => ({
+    date,
+    dayNum: Number(date.slice(-2)),
+    weekdayShort: t(`days.short.${index}`),
+    summary: getDayDoseSummary(pills, doseLog, date, now),
+  }));
 
   return {
     pills,
@@ -71,5 +97,9 @@ export async function loadWidgetSnapshot(now = new Date()): Promise<WidgetSnapsh
     pendingCount,
     takenCount,
     totalCount: doses.length,
+    upcoming,
+    weekMarks,
+    weekTitle: t('widgets.weekTitle'),
+    todayDate,
   };
 }

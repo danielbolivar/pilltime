@@ -84,6 +84,17 @@
               "targetCellHeight": 2,
               "updatePeriodMillis": 1800000,
               "resizeMode": "horizontal|vertical"
+            },
+            {
+              "name": "MonthAgenda",
+              "label": "PillTime — Week",
+              "description": "This week and next pills",
+              "minWidth": "250dp",
+              "minHeight": "180dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 3,
+              "updatePeriodMillis": 1800000,
+              "resizeMode": "horizontal|vertical"
             }
           ]
         }

@@ -5,8 +5,10 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import {
   createId,
   doseLogKey,
+  getDosesForDate,
   getTodayDoses as computeTodayDoses,
   toLocalDateString,
+  addDays,
 } from '@/src/domain/schedule';
 import type {
   AppSettings,
@@ -208,6 +210,31 @@ export function useTodayDoses(now?: Date): TodayDose[] {
   const pills = usePillStore((s) => s.pills);
   const doseLog = usePillStore((s) => s.doseLog);
   return computeTodayDoses(pills, doseLog, now ?? new Date());
+}
+
+export function useDosesForDate(dateStr: string, now?: Date): TodayDose[] {
+  const pills = usePillStore((s) => s.pills);
+  const doseLog = usePillStore((s) => s.doseLog);
+  return getDosesForDate(pills, doseLog, dateStr, now ?? new Date());
+}
+
+export function useHomeWindowDoses(now?: Date): {
+  yesterday: TodayDose[];
+  today: TodayDose[];
+  yesterdayDate: string;
+  todayDate: string;
+} {
+  const pills = usePillStore((s) => s.pills);
+  const doseLog = usePillStore((s) => s.doseLog);
+  const current = now ?? new Date();
+  const todayDate = toLocalDateString(current);
+  const yesterdayDate = addDays(todayDate, -1);
+  return {
+    yesterday: getDosesForDate(pills, doseLog, yesterdayDate, current),
+    today: getDosesForDate(pills, doseLog, todayDate, current),
+    yesterdayDate,
+    todayDate,
+  };
 }
 
 export { toLocalDateString };

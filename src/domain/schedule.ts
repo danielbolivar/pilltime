@@ -78,32 +78,47 @@ export function isPillActiveOnDate(pill: Pill, dateStr: string): boolean {
   return true;
 }
 
-export function getTodayDoses(
+export type DayDoseSummary = {
+  scheduled: number;
+  taken: number;
+  skipped: number;
+  pending: number;
+};
+
+export function getDosesForDate(
   pills: Pill[],
   doseLog: Record<string, DoseLogEntry>,
+  dateStr: string,
   now = new Date(),
 ): TodayDose[] {
-  const date = toLocalDateString(now);
+  const today = toLocalDateString(now);
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
-
   const doses: TodayDose[] = [];
 
   for (const pill of pills) {
-    if (!isPillActiveOnDate(pill, date)) continue;
+    if (!isPillActiveOnDate(pill, dateStr)) continue;
 
     for (const time of pill.times) {
-      const key = doseLogKey(pill.id, date, time);
+      const key = doseLogKey(pill.id, dateStr, time);
       const logged = doseLog[key];
       const status: DoseStatus = logged ? logged.status : 'pending';
       const sortMinutes = time.hour * 60 + time.minute;
-      const isOverdue = status === 'pending' && sortMinutes < nowMinutes - 5;
+
+      let isOverdue = false;
+      if (status === 'pending') {
+        if (dateStr < today) {
+          isOverdue = true;
+        } else if (dateStr === today) {
+          isOverdue = sortMinutes < nowMinutes - 5;
+        }
+      }
 
       doses.push({
         key,
         pillId: pill.id,
         pillName: pill.name,
         notes: pill.notes,
-        date,
+        date: dateStr,
         time,
         timeLabel: formatClockTime(time),
         status,
@@ -121,8 +136,85 @@ export function getTodayDoses(
   });
 }
 
+export function getTodayDoses(
+  pills: Pill[],
+  doseLog: Record<string, DoseLogEntry>,
+  now = new Date(),
+): TodayDose[] {
+  return getDosesForDate(pills, doseLog, toLocalDateString(now), now);
+}
+
+export function getDayDoseSummary(
+  pills: Pill[],
+  doseLog: Record<string, DoseLogEntry>,
+  dateStr: string,
+  now = new Date(),
+): DayDoseSummary {
+  const doses = getDosesForDate(pills, doseLog, dateStr, now);
+  return {
+    scheduled: doses.length,
+    taken: doses.filter((d) => d.status === 'taken').length,
+    skipped: doses.filter((d) => d.status === 'skipped').length,
+    pending: doses.filter((d) => d.status === 'pending').length,
+  };
+}
+
+/** Pending doses from yesterday (overdue) then today, for home/widgets. */
+export function getHomeWindowPendingDoses(
+  pills: Pill[],
+  doseLog: Record<string, DoseLogEntry>,
+  now = new Date(),
+): TodayDose[] {
+  const today = toLocalDateString(now);
+  const yesterday = addDays(today, -1);
+  const yesterdayPending = getDosesForDate(pills, doseLog, yesterday, now).filter(
+    (d) => d.status === 'pending',
+  );
+  const todayPending = getDosesForDate(pills, doseLog, today, now).filter(
+    (d) => d.status === 'pending',
+  );
+  return [...yesterdayPending, ...todayPending];
+}
+
 export function getNextPendingDose(doses: TodayDose[]): TodayDose | null {
   return doses.find((d) => d.status === 'pending') ?? null;
+}
+
+export function canEditDosesForDate(dateStr: string, now = new Date()): boolean {
+  return dateStr <= toLocalDateString(now);
+}
+
+export function monthKeyFromDate(dateStr: string): { year: number; month: number } {
+  const d = parseLocalDate(dateStr);
+  return { year: d.getFullYear(), month: d.getMonth() };
+}
+
+export function formatMonthTitle(year: number, month: number): string {
+  const d = new Date(year, month, 1);
+  return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+
+/** Days in month grid including leading/trailing blanks as null. */
+export function buildMonthGrid(year: number, month: number): (string | null)[] {
+  const first = new Date(year, month, 1);
+  const startPad = first.getDay(); // 0 = Sunday
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (string | null)[] = [];
+
+  for (let i = 0; i < startPad; i++) cells.push(null);
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push(`${year}-${pad2(month + 1)}-${pad2(day)}`);
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
+/** Current week Sun→Sat as local YYYY-MM-DD strings. */
+export function buildWeekDates(now = new Date()): string[] {
+  const today = toLocalDateString(now);
+  const weekday = parseLocalDate(today).getDay(); // 0 = Sunday
+  const sunday = addDays(today, -weekday);
+  return Array.from({ length: 7 }, (_, i) => addDays(sunday, i));
 }
 
 export const ALL_DAYS: Weekday[] = [0, 1, 2, 3, 4, 5, 6];

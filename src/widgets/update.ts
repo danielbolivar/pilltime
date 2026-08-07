@@ -17,6 +17,10 @@ export async function syncHomeWidgets(): Promise<void> {
         widgetName: WIDGET_NAMES.Today,
         renderWidget: () => renderWidgetByName(WIDGET_NAMES.Today),
       }),
+      requestWidgetUpdate({
+        widgetName: WIDGET_NAMES.MonthAgenda,
+        renderWidget: () => renderWidgetByName(WIDGET_NAMES.MonthAgenda),
+      }),
     ]);
   } catch {
     // Widgets require a native build; ignore failures in Expo Go / web.

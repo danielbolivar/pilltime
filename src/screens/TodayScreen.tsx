@@ -8,8 +8,9 @@ import { BigButton } from '@/src/components/BigButton';
 import { DoseCard, doseTimeKey } from '@/src/components/DoseCard';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { getNextPendingDose } from '@/src/domain/schedule';
+import type { TodayDose } from '@/src/domain/types';
 import { useT } from '@/src/i18n/useT';
-import { usePillStore, useTodayDoses } from '@/src/store/pillStore';
+import { useHomeWindowDoses, usePillStore } from '@/src/store/pillStore';
 
 export function TodayScreen() {
   const t = useT();
@@ -18,25 +19,42 @@ export function TodayScreen() {
   const setDoseStatus = usePillStore((s) => s.setDoseStatus);
   const clearDoseStatus = usePillStore((s) => s.clearDoseStatus);
   const [tick, setTick] = useState(0);
-  const doses = useTodayDoses();
-  const next = getNextPendingDose(doses);
-  const pendingCount = doses.filter((d) => d.status === 'pending').length;
+  const [yesterdayOpen, setYesterdayOpen] = useState(false);
+  const { yesterday, today } = useHomeWindowDoses();
+  const yesterdayPending = yesterday.filter((d) => d.status === 'pending');
+  const showYesterday = yesterdayPending.length > 0;
+  const todayPending = today.filter((d) => d.status === 'pending');
+  const next =
+    getNextPendingDose(yesterdayPending) ?? getNextPendingDose(todayPending);
+  const pendingCount = yesterdayPending.length + todayPending.length;
 
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    const id = setInterval(() => setTick((n) => n + 1), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (!showYesterday) setYesterdayOpen(false);
+  }, [showYesterday]);
 
   void tick;
 
   const subtitle =
     pills.length === 0
       ? t('today.subtitleEmpty')
-      : pendingCount === 0
-        ? t('today.subtitleDone')
-        : next
-          ? t('today.subtitleNext', { name: next.pillName, time: next.timeLabel })
-          : t('today.subtitleList');
+      : yesterdayPending.length > 0
+        ? t('today.subtitleYesterdayPending', { count: yesterdayPending.length })
+        : pendingCount === 0
+          ? t('today.subtitleDone')
+          : next
+            ? t('today.subtitleNext', { name: next.pillName, time: next.timeLabel })
+            : t('today.subtitleList');
+
+  const bindDose = (dose: TodayDose) => ({
+    onTaken: () => setDoseStatus(dose.pillId, dose.date, doseTimeKey(dose), 'taken'),
+    onSkip: () => setDoseStatus(dose.pillId, dose.date, doseTimeKey(dose), 'skipped'),
+    onUndo: () => clearDoseStatus(dose.pillId, dose.date, doseTimeKey(dose)),
+  });
 
   return (
     <AppSafeArea>
@@ -66,7 +84,7 @@ export function TodayScreen() {
             <Text style={styles.emptyBody}>{t('today.emptyBody')}</Text>
             <BigButton label={t('today.addPill')} onPress={() => router.push('/pill/new')} />
           </View>
-        ) : doses.length === 0 ? (
+        ) : !showYesterday && today.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>{t('today.nothingTitle')}</Text>
             <Text style={styles.emptyBody}>{t('today.nothingBody')}</Text>
@@ -78,20 +96,47 @@ export function TodayScreen() {
           </View>
         ) : (
           <View style={styles.list}>
-            {doses.map((dose, index) => (
-              <DoseCard
-                key={dose.key}
-                dose={dose}
-                index={index}
-                onTaken={() =>
-                  setDoseStatus(dose.pillId, dose.date, doseTimeKey(dose), 'taken')
-                }
-                onSkip={() =>
-                  setDoseStatus(dose.pillId, dose.date, doseTimeKey(dose), 'skipped')
-                }
-                onUndo={() => clearDoseStatus(dose.pillId, dose.date, doseTimeKey(dose))}
-              />
-            ))}
+            {showYesterday ? (
+              <View style={styles.section}>
+                <Pressable
+                  onPress={() => setYesterdayOpen((open) => !open)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: yesterdayOpen }}
+                  style={styles.collapseHeader}
+                >
+                  <Text style={styles.sectionTitle}>{t('today.yesterday')}</Text>
+                  <Text style={styles.collapseHint}>
+                    {yesterdayOpen
+                      ? t('today.yesterdayHide')
+                      : t('today.yesterdayCollapsed', { count: yesterdayPending.length })}
+                  </Text>
+                </Pressable>
+                {yesterdayOpen
+                  ? yesterdayPending.map((dose, index) => (
+                      <DoseCard key={dose.key} dose={dose} index={index} {...bindDose(dose)} />
+                    ))
+                  : null}
+              </View>
+            ) : null}
+
+            {today.length > 0 ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>{t('today.sectionToday')}</Text>
+                {today.map((dose, index) => (
+                  <DoseCard
+                    key={dose.key}
+                    dose={dose}
+                    index={index + (yesterdayOpen ? yesterdayPending.length : 0)}
+                    {...bindDose(dose)}
+                  />
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyInline}>
+                <Text style={styles.emptyTitle}>{t('today.nothingTitle')}</Text>
+                <Text style={styles.emptyBody}>{t('today.nothingBody')}</Text>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -122,6 +167,10 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
+  emptyInline: {
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+  },
   emptyTitle: {
     ...theme.typography.title,
     color: theme.colors.ink,
@@ -132,6 +181,28 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: theme.spacing.sm,
   },
   list: {
+    gap: theme.spacing.lg,
+  },
+  section: {
     gap: theme.spacing.md,
+  },
+  sectionTitle: {
+    ...theme.typography.headline,
+    color: theme.colors.ink,
+  },
+  collapseHeader: {
+    minHeight: 56,
+    borderRadius: theme.radii.md,
+    borderWidth: 2,
+    borderColor: theme.colors.danger,
+    backgroundColor: theme.colors.dangerSoft,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+  },
+  collapseHint: {
+    ...theme.typography.body,
+    color: theme.colors.danger,
   },
 }));
